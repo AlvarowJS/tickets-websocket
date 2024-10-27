@@ -7,12 +7,12 @@ interface Options {
 }
 
 // Singleton porque solo se necesita una instanacia del websocket
-
+// Podremos usar websocket en cualquier lado de la aplicacion
 export class WssService {
     private static _instance: WssService;
     private wss: WebSocketServer;
 
-    private constructor( options: Options) {
+    private constructor(options: Options) {
         const { server, path = '/ws' } = options;
 
         this.wss = new WebSocketServer({ server, path });
@@ -20,17 +20,25 @@ export class WssService {
     }
 
     static get instance(): WssService {
-        if  (!WssService._instance){
+        if (!WssService._instance) {
             throw 'WssService is not initialized';
         }
 
         return WssService._instance;
     }
-    
-    static initWss( options: Options) {
+
+    static initWss(options: Options) {
         WssService._instance = new WssService(options);
     }
-
+    
+    public sendMessage(type: string, payload: Object) {
+        this.wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type, payload }))
+            }
+        })
+    }
+    
     public start() {
         this.wss.on('connection', (ws: WebSocket) => {
             console.log('Client connected');
