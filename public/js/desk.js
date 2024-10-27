@@ -17,6 +17,7 @@ deskHeader.innerText = deskNumber
 
 
 function checkTicketCount(currentCount = 0) {
+
     if (currentCount === 0) {
         noMoreAlert.classList.remove('d-none')
     } else {
@@ -27,12 +28,35 @@ function checkTicketCount(currentCount = 0) {
 
 
 async function loadInitialCount() {
+
     const pendingTickets = await fetch('api/ticket/pending').then(resp => resp.json());
     checkTicketCount(pendingTickets.length);
 }
 
 async function getTicket() {
-    const { status, ticket } = await fetch(`/api/ticket/draw/${deskNumber}`).then(resp => resp.json());    
+    await finishedTicket()
+    const { status, ticket, message } = await fetch(`/api/ticket/draw/${deskNumber}`).then(resp => resp.json());
+    if (status == 'error') {
+        lblCurrentTicket.innerText = message;
+        return;
+    }
+
+    workingTicket = ticket
+    lblCurrentTicket.innerText = ticket.number
+}
+
+async function finishedTicket() {
+    if( !workingTicket ) return;
+
+    const { status } = await fetch(`/api/ticket/done/${workingTicket.id}`, {
+        method: 'PUT'
+    })
+    .then(resp => resp.json());
+
+    if( status === 'ok'){
+        workingTicket = null;
+        lblCurrentTicket.innerText = 'Nadie'
+    }
 }
 
 function connectToWebSockets() {
@@ -44,6 +68,8 @@ function connectToWebSockets() {
         const { type, payload } = JSON.parse(event.data)
         if (type !== "on-ticket-count-changed") return
         lblPending.innerHTML = payload
+        loadInitialCount()
+
     };
 
     socket.onclose = (event) => {
@@ -61,6 +87,9 @@ function connectToWebSockets() {
 
 }
 
+
+btnDraw.addEventListener('click', getTicket);
+btnDone.addEventListener('click', finishedTicket);
 connectToWebSockets();
 
 loadInitialCount()
